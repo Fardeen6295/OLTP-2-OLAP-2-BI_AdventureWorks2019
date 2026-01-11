@@ -1,0 +1,267 @@
+{
+	"name": "Gold_Reseller",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkPool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "4dde9395-7c67-4d2c-b046-a48e4916bfb0"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5fc955a9-5f26-4bec-b815-30115c8d5b68/resourceGroups/Mark_2/providers/Microsoft.Synapse/workspaces/contoso200709/bigDataPools/SparkPool",
+				"name": "SparkPool",
+				"type": "Spark",
+				"endpoint": "https://contoso200709.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.5",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.functions import *\n",
+					"from pyspark.sql.types import *\n",
+					"from delta.tables import DeltaTable\n",
+					"from pyspark.sql.window import Window\n",
+					""
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"source_schema = 'silver_sales'\n",
+					"\n",
+					"target_schema = 'gold_sales'\n",
+					"\n",
+					"surrogate_Key = 'DimResellerKey'\n",
+					"\n",
+					"key_col = 'CustomerID'"
+				],
+				"execution_count": 54
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"df_src = spark.sql(f\"\"\"\n",
+					"SELECT \n",
+					"\tc.CustomerID, c.PersonID, c.StoreID, c.AccountNumber,\n",
+					"\tsto.`Name` as StoreName,\n",
+					"\ta.AddressLine1, a.City, a.PostalCode, \n",
+					"\tsp.`Name` as StateProvinceName, sp.StateProvinceCode, \n",
+					"\tcr.`Name` as CountryName, st.CountryRegionCode as CountryCode,\n",
+					"\tst.`Name` as Territory, st.[Group],\n",
+					"\tadt.`Name` as AddressType,\n",
+					"\tp.PersonType, p.Title, p.FirstName, p.MiddleName, p.LastName,\n",
+					"\tpp.PhoneNumber,\n",
+					"\tpnt.`Name` as PhoneNumberType\n",
+					"FROM silver_sales.Customer c\n",
+					"LEFT JOIN silver_sales.BusinessEntityAddress bea\n",
+					"ON c.StoreID = bea.BusinessEntityID AND bea.AddressTypeID = 3\n",
+					"LEFT JOIN silver_sales.Address a\n",
+					"ON bea.AddressID = a.AddressID\n",
+					"LEFT JOIN silver_sales.StateProvince sp\n",
+					"ON a.StateProvinceID = sp.StateProvinceID\n",
+					"LEFT JOIN silver_sales.SalesTerritory st\n",
+					"ON sp.TerritoryID = st.TerritoryID\n",
+					"LEFT JOIN silver_sales.CountryRegion cr\n",
+					"ON st.CountryRegionCode = cr.CountryRegionCode\n",
+					"LEFT JOIN silver_sales.AddressType adt\n",
+					"ON bea.AddressTypeID = adt.AddressTypeID\n",
+					"LEFT JOIN silver_sales.Person p\n",
+					"ON c.PersonID = p.BusinessEntityID\n",
+					"LEFT JOIN silver_sales.PersonPhone pp\n",
+					"ON p.BusinessEntityID = pp.BusinessEntityID\n",
+					"LEFT JOIN silver_sales.PhoneNumberType pnt\n",
+					"ON pp.PhoneNumberTypeID = pnt.PhoneNumberTypeID AND pnt.`Name` = 'Work'\n",
+					"LEFT JOIN silver_sales.Store sto\n",
+					"ON c.StoreID = sto.BusinessEntityID\n",
+					"WHERE StoreID IS NOT NULL\n",
+					"\"\"\")"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"if spark.catalog.tableExists(F\"{target_schema}.DimReseller\"):\n",
+					"    df_trg = spark.sql(f\"\"\"\n",
+					"                    SELECT {key_col}, {surrogate_Key}, CreatedAt, UpdatedAt\n",
+					"                    FROM {target_schema}.DimReseller\n",
+					"                    \"\"\")\n",
+					"\n",
+					"else:\n",
+					"    df_trg = spark.sql(f\"\"\"\n",
+					"                    SELECT \n",
+					"                    CAST('0' AS INT) AS {key_col}, \n",
+					"                    CAST('0' AS INT) AS {surrogate_Key}, \n",
+					"                    CAST('1900-01-01 00:00:00' AS TIMESTAMP) AS CreatedAt,\n",
+					"                    CAST('1900-01-01 00:00:00' AS TIMESTAMP) AS UpdatedAt\n",
+					"                    WHERE 1=0\n",
+					"                    \"\"\")"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_src.createOrReplaceTempView(\"src\")\n",
+					"df_trg.createOrReplaceTempView(\"trg\")\n",
+					"\n",
+					"df_join = spark.sql(f\"\"\"\n",
+					"                SELECT \n",
+					"                src.*,\n",
+					"                trg.{surrogate_Key},\n",
+					"                trg.CreatedAt,\n",
+					"                trg.UpdatedAt\n",
+					"                FROM\n",
+					"                src LEFT JOIN trg\n",
+					"                ON src.{key_col} = trg.{key_col}\n",
+					"            \"\"\")"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_old = df_join.filter(col(f\"{surrogate_Key}\").isNotNull())\n",
+					"\n",
+					"df_new = df_join.filter(col(f\"{surrogate_Key}\").isNull())"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if spark.catalog.tableExists(F\"{target_schema}.DimReseller\"):\n",
+					"    max_surrogate_key = spark.sql(f\"\"\"\n",
+					"                        SELECT MAX({surrogate_Key}) from {target_schema}.DimReseller\n",
+					"                        \"\"\").collect()[0][0]\n",
+					"    w = Window.orderBy(monotonically_increasing_id())\n",
+					"\n",
+					"    df_new_enr = df_new.withColumn(f\"{surrogate_Key}\", row_number().over(w) + lit(max_surrogate_key))\\\n",
+					"                        .withColumn(\"CreatedAt\", current_timestamp())\\\n",
+					"                        .withColumn(\"UpdatedAt\", current_timestamp())\n",
+					"\n",
+					"else:\n",
+					"    max_surrogate_key = 0\n",
+					"    w = Window.orderBy(monotonically_increasing_id())\n",
+					"\n",
+					"    df_new_enr = df_new.withColumn(f\"{surrogate_Key}\", row_number().over(w) + lit(max_surrogate_key))\\\n",
+					"                        .withColumn(\"CreatedAt\", current_timestamp())\\\n",
+					"                        .withColumn(\"UpdatedAt\", current_timestamp())\n",
+					"\n",
+					"max_surrogate_key"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_union = df_old_enr.unionByName(df_new_enr)\n",
+					"\n",
+					"df_union.createOrReplaceTempView(\"df_final\")"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if spark.catalog.tableExists(f\"{target_schema}.DimReseller\"):\n",
+					"    spark.sql(F\"\"\"\n",
+					"            MERGE INTO {target_schema}.DimReseller AS trg\n",
+					"            USING df_final AS src\n",
+					"            ON trg.{surrogate_Key} = src.{surrogate_Key}\n",
+					"            AND trg.IsCurrent = 'Y'\n",
+					"\n",
+					"            WHEN MATCHED AND (\n",
+					"                trg.PersonID <> src.PersonID OR\n",
+					"                trg.StoreID <> src.StoreID OR\n",
+					"                trg.AccountNumber <> src.AccountNumber OR\n",
+					"                trg.StoreName <> src.StoreName OR\n",
+					"                trg.AddressLine1 <> src.AddressLine1 OR\n",
+					"                trg.City <> src.City OR\n",
+					"                trg.PostalCode <> src.PostalCode OR\n",
+					"                trg.StateProvinceName <> src.StateProvinceName OR\n",
+					"                trg.StateProvinceCode <> src.StateProvinceCode OR\n",
+					"                trg.CountryName <> src.CountryName OR\n",
+					"                trg.CountryCode <> src.CountryCode OR\n",
+					"                trg.Territory <> src.Territory OR\n",
+					"                trg.Group <> src.Group OR\n",
+					"                trg.FirstName <> src.FirstName OR\n",
+					"                trg.MiddleName <> src.MiddleName OR\n",
+					"                trg.LastName <> src.LastName OR\n",
+					"                trg.PhoneNumber <> src.PhoneNumber OR\n",
+					"                trg.PhoneNumberType <> src.PhoneNumberType\n",
+					"            )\n",
+					"            THEN UPDATE SET\n",
+					"                trg.IsCurrent = 'N',\n",
+					"                trg.EndDate = Current_Timestamp();\n",
+					"    \"\"\")\n",
+					"\n",
+					"    spark.sql(f\"\"\"\n",
+					"            MERGE INTO {target_schema}.DimReseller AS trg\n",
+					"            USING df_final AS src\n",
+					"            ON trg.{surrogate_Key} = src.{surrogate_Key}\n",
+					"            AND trg.IsCurrent = 'Y'\n",
+					"            WHEN NOT MATCHED THEN INSERT *\n",
+					"\n",
+					"    \"\"\")\n",
+					"\n",
+					"else:\n",
+					"    df_union.write.format(\"delta\")\\\n",
+					"                    .mode(\"append\")\\\n",
+					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimReseller\")\\\n",
+					"                    .saveAsTable(f\"{target_schema}.DimReseller\")"
+				],
+				"execution_count": 62
+			}
+		]
+	}
+}
