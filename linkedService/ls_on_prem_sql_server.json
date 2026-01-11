@@ -1,0 +1,21 @@
+{
+	"name": "ls_on_prem_sql_server",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "KHANBIENG\\SQLEXPRESS",
+			"database": "AdventureWorks",
+			"encrypt": "mandatory",
+			"trustServerCertificate": true,
+			"authenticationType": "SQL",
+			"userName": "sa",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiJhNDFmMzdmZS1lNjU4LTQ1NWYtOGYzOC0wZmY1NzA1NWE1NTMiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "IntegrationRuntimeKhanBI",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

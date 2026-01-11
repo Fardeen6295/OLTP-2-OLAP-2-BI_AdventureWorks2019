@@ -1,0 +1,29 @@
+{
+	"name": "ds_cdcjson",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_dl_contoso0709",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"p_folder": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "cdc.json",
+				"folderPath": {
+					"value": "@dataset().p_folder",
+					"type": "Expression"
+				},
+				"fileSystem": "etlcontrol"
+			}
+		},
+		"schema": {}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

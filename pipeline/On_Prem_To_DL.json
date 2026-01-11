@@ -1,0 +1,1972 @@
+{
+	"name": "On_Prem_To_DL",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEachSalesTable",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.sales_tables_loop",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Last_cdc_date",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "JsonSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "JsonReadSettings"
+									}
+								},
+								"dataset": {
+									"referenceName": "ds_cdcjson",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_folder": {
+											"value": "@concat('sales/', item().table)",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "Current_Timestamp",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "current_timestamp",
+								"value": {
+									"value": "@utcNow()",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "CheckNewRecords",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Last_cdc_date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Current_Timestamp",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_on_prem_sql_server",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "SELECT COUNT(*) as newrows FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate),activity('Last_cdc_date').output.value[0].cdc,item().backdate)}'",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "IfNewRecords",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "CheckNewRecords",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(activity('CheckNewRecords').output.resultSets[0].rows[0].newrows, 0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Database2DataLake",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": {
+													"value": "SELECT * FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate), activity('Last_cdc_date').output.value[0].cdc, item().backdate)}'",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ls_AdventureWorks_DB",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ls_dl_sales_tables",
+												"type": "DatasetReference",
+												"parameters": {
+													"P_folder": {
+														"value": "@concat('sales/', item().table)",
+														"type": "Expression"
+													},
+													"p_file": {
+														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "NewMaxDate",
+										"type": "Script",
+										"dependsOn": [
+											{
+												"activity": "Database2DataLake",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"linkedServiceName": {
+											"referenceName": "ls_on_prem_sql_server",
+											"type": "LinkedServiceReference"
+										},
+										"typeProperties": {
+											"scripts": [
+												{
+													"type": "Query",
+													"text": {
+														"value": "SELECT MAX(@{item().cdc}) as cdc FROM @{item().schema}.@{item().table}",
+														"type": "Expression"
+													}
+												}
+											],
+											"scriptBlockExecutionTimeout": "02:00:00"
+										}
+									},
+									{
+										"name": "UpdateCdcJson",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "NewMaxDate",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "JsonSource",
+												"additionalColumns": [
+													{
+														"name": "cdc",
+														"value": {
+															"value": "@activity('NewMaxDate').output.resultSets[0].rows[0].cdc",
+															"type": "Expression"
+														}
+													}
+												],
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "JsonReadSettings"
+												}
+											},
+											"sink": {
+												"type": "JsonSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "JsonWriteSettings"
+												}
+											},
+											"enableStaging": false
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_empty_json",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('sales/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_cdcjson",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('sales/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "ForEachPersonTable",
+				"type": "ForEach",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "ForEachSalesTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.person_tables_loop",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "PLast_cdc_date",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "JsonSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "JsonReadSettings"
+									}
+								},
+								"dataset": {
+									"referenceName": "ds_cdcjson",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_folder": {
+											"value": "@concat('person/', item().table)",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "PCurrent_Timestamp",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "current_timestamp",
+								"value": {
+									"value": "@utcNow()",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "PCheckNewRecords",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "PLast_cdc_date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "PCurrent_Timestamp",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_on_prem_sql_server",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "SELECT COUNT(*) as newrows FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate),activity('PLast_cdc_date').output.value[0].cdc,item().backdate)}'",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "PIfNewRecords",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "PCheckNewRecords",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(activity('PCheckNewRecords').output.resultSets[0].rows[0].newrows, 0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "PDatabase2DataLake",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": {
+													"value": "SELECT * FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate), activity('PLast_cdc_date').output.value[0].cdc, item().backdate)}'",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ls_AdventureWorks_DB",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ls_dl_sales_tables",
+												"type": "DatasetReference",
+												"parameters": {
+													"P_folder": {
+														"value": "@concat('person/', item().table)",
+														"type": "Expression"
+													},
+													"p_file": {
+														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "PNewMaxDate",
+										"type": "Script",
+										"dependsOn": [
+											{
+												"activity": "PDatabase2DataLake",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"linkedServiceName": {
+											"referenceName": "ls_on_prem_sql_server",
+											"type": "LinkedServiceReference"
+										},
+										"typeProperties": {
+											"scripts": [
+												{
+													"type": "Query",
+													"text": {
+														"value": "SELECT MAX(@{item().cdc}) as cdc FROM @{item().schema}.@{item().table}",
+														"type": "Expression"
+													}
+												}
+											],
+											"scriptBlockExecutionTimeout": "02:00:00"
+										}
+									},
+									{
+										"name": "PUpdateCdcJson",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "PNewMaxDate",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "JsonSource",
+												"additionalColumns": [
+													{
+														"name": "cdc",
+														"value": {
+															"value": "@activity('PNewMaxDate').output.resultSets[0].rows[0].cdc",
+															"type": "Expression"
+														}
+													}
+												],
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "JsonReadSettings"
+												}
+											},
+											"sink": {
+												"type": "JsonSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "JsonWriteSettings"
+												}
+											},
+											"enableStaging": false
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_empty_json",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('person/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_cdcjson",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('person/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "ForEachProductionTable",
+				"type": "ForEach",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "ForEachPersonTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.production_tables_loop",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Prod_Last_cdc_date",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "JsonSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "JsonReadSettings"
+									}
+								},
+								"dataset": {
+									"referenceName": "ds_cdcjson",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_folder": {
+											"value": "@concat('production/', item().table)",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "Prod_Current_Timestamp",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "current_timestamp",
+								"value": {
+									"value": "@utcNow()",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Prod_CheckNewRecords",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Prod_Last_cdc_date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Prod_Current_Timestamp",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_on_prem_sql_server",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "SELECT COUNT(*) as newrows FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate),activity('Prod_Last_cdc_date').output.value[0].cdc,item().backdate)}'",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "Prod_IfNewRecords",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Prod_CheckNewRecords",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(activity('Prod_CheckNewRecords').output.resultSets[0].rows[0].newrows, 0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Prod_Database2DataLake",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": {
+													"value": "SELECT * FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate), activity('Prod_Last_cdc_date').output.value[0].cdc, item().backdate)}'",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ls_AdventureWorks_DB",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ls_dl_sales_tables",
+												"type": "DatasetReference",
+												"parameters": {
+													"P_folder": {
+														"value": "@concat('production/', item().table)",
+														"type": "Expression"
+													},
+													"p_file": {
+														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "Prod_NewMaxDate",
+										"type": "Script",
+										"dependsOn": [
+											{
+												"activity": "Prod_Database2DataLake",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"linkedServiceName": {
+											"referenceName": "ls_on_prem_sql_server",
+											"type": "LinkedServiceReference"
+										},
+										"typeProperties": {
+											"scripts": [
+												{
+													"type": "Query",
+													"text": {
+														"value": "SELECT MAX(@{item().cdc}) as cdc FROM @{item().schema}.@{item().table}",
+														"type": "Expression"
+													}
+												}
+											],
+											"scriptBlockExecutionTimeout": "02:00:00"
+										}
+									},
+									{
+										"name": "Prod_UpdateCdcJson",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "Prod_NewMaxDate",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "JsonSource",
+												"additionalColumns": [
+													{
+														"name": "cdc",
+														"value": {
+															"value": "@activity('Prod_NewMaxDate').output.resultSets[0].rows[0].cdc",
+															"type": "Expression"
+														}
+													}
+												],
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "JsonReadSettings"
+												}
+											},
+											"sink": {
+												"type": "JsonSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "JsonWriteSettings"
+												}
+											},
+											"enableStaging": false
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_empty_json",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('production/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_cdcjson",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('production/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "ForEachHRTable",
+				"type": "ForEach",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "ForEachProductionTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.hr_tables_loop",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "HR_Last_cdc_date",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "JsonSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "JsonReadSettings"
+									}
+								},
+								"dataset": {
+									"referenceName": "ds_cdcjson",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_folder": {
+											"value": "@concat('humanresources/', item().table)",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "HR_Current_Timestamp",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "current_timestamp",
+								"value": {
+									"value": "@utcNow()",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "HR_CheckNewRecords",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "HR_Last_cdc_date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "HR_Current_Timestamp",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_on_prem_sql_server",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "SELECT COUNT(*) as newrows FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate),activity('HR_Last_cdc_date').output.value[0].cdc,item().backdate)}'",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "HR_IfNewRecords",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "HR_CheckNewRecords",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(activity('HR_CheckNewRecords').output.resultSets[0].rows[0].newrows, 0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "HR_Database2DataLake",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": {
+													"value": "SELECT * FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate), activity('HR_Last_cdc_date').output.value[0].cdc, item().backdate)}'",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ls_AdventureWorks_DB",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ls_dl_sales_tables",
+												"type": "DatasetReference",
+												"parameters": {
+													"P_folder": {
+														"value": "@concat('humanresources/', item().table)",
+														"type": "Expression"
+													},
+													"p_file": {
+														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "HR_NewMaxDate",
+										"type": "Script",
+										"dependsOn": [
+											{
+												"activity": "HR_Database2DataLake",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"linkedServiceName": {
+											"referenceName": "ls_on_prem_sql_server",
+											"type": "LinkedServiceReference"
+										},
+										"typeProperties": {
+											"scripts": [
+												{
+													"type": "Query",
+													"text": {
+														"value": "SELECT MAX(@{item().cdc}) as cdc FROM @{item().schema}.@{item().table}",
+														"type": "Expression"
+													}
+												}
+											],
+											"scriptBlockExecutionTimeout": "02:00:00"
+										}
+									},
+									{
+										"name": "HR_UpdateCdcJson",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "HR_NewMaxDate",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "JsonSource",
+												"additionalColumns": [
+													{
+														"name": "cdc",
+														"value": {
+															"value": "@activity('HR_NewMaxDate').output.resultSets[0].rows[0].cdc",
+															"type": "Expression"
+														}
+													}
+												],
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "JsonReadSettings"
+												}
+											},
+											"sink": {
+												"type": "JsonSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "JsonWriteSettings"
+												}
+											},
+											"enableStaging": false
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_empty_json",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('humanresources/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_cdcjson",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('humanresources/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "ForEachPurchasingTable",
+				"type": "ForEach",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "ForEachHRTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.purchasing_tables_loop",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Prch_Last_cdc_date",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "JsonSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "JsonReadSettings"
+									}
+								},
+								"dataset": {
+									"referenceName": "ds_cdcjson",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_folder": {
+											"value": "@concat('purchasing/', item().table)",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "Prch_Current_Timestamp",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "current_timestamp",
+								"value": {
+									"value": "@utcNow()",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Prch_CheckNewRecords",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Prch_Last_cdc_date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Prch_Current_Timestamp",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_on_prem_sql_server",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "SELECT COUNT(*) as newrows FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate),activity('Prch_Last_cdc_date').output.value[0].cdc,item().backdate)}'",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "Prch_IfNewRecords",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Prch_CheckNewRecords",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(activity('Prch_CheckNewRecords').output.resultSets[0].rows[0].newrows, 0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Prch_Database2DataLake",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": {
+													"value": "SELECT * FROM @{item().schema}.@{item().table} WHERE @{item().cdc} > '@{if(empty(item().backdate), activity('Prch_Last_cdc_date').output.value[0].cdc, item().backdate)}'",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ls_AdventureWorks_DB",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ls_dl_sales_tables",
+												"type": "DatasetReference",
+												"parameters": {
+													"P_folder": {
+														"value": "@concat('purchasing/', item().table)",
+														"type": "Expression"
+													},
+													"p_file": {
+														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "Prch_NewMaxDate",
+										"type": "Script",
+										"dependsOn": [
+											{
+												"activity": "Prch_Database2DataLake",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"linkedServiceName": {
+											"referenceName": "ls_on_prem_sql_server",
+											"type": "LinkedServiceReference"
+										},
+										"typeProperties": {
+											"scripts": [
+												{
+													"type": "Query",
+													"text": {
+														"value": "SELECT MAX(@{item().cdc}) as cdc FROM @{item().schema}.@{item().table}",
+														"type": "Expression"
+													}
+												}
+											],
+											"scriptBlockExecutionTimeout": "02:00:00"
+										}
+									},
+									{
+										"name": "Prch_UpdateCdcJson",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "Prch_NewMaxDate",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "JsonSource",
+												"additionalColumns": [
+													{
+														"name": "cdc",
+														"value": {
+															"value": "@activity('Prch_NewMaxDate').output.resultSets[0].rows[0].cdc",
+															"type": "Expression"
+														}
+													}
+												],
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "JsonReadSettings"
+												}
+											},
+											"sink": {
+												"type": "JsonSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "JsonWriteSettings"
+												}
+											},
+											"enableStaging": false
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_empty_json",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('purchasing/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_cdcjson",
+												"type": "DatasetReference",
+												"parameters": {
+													"p_folder": {
+														"value": "@concat('purchasing/',item().table)",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"sales_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Sales",
+						"table": "CountryRegionCurrency",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "CreditCard",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "Currency",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "CurrencyRate",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "Customer",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "PersonCreditCard",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesOrderDetail",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesOrderHeader",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesOrderHeaderSalesReason",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesReason",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesTaxRate",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesTerritory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SpecialOffer",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SpecialOfferProduct",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "Store",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesPerson",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"person_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Person",
+						"table": "vw_Address_Clean",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "AddressType",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "BusinessEntity",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "BusinessEntityAddress",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "BusinessEntityContact",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "ContactType",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "CountryRegion",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "EmailAddress",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "Password",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "Person",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "PersonPhone",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "PhoneNumberType",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "StateProvince",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"production_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Production",
+						"table": "BillOfMaterials",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "Culture",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "Location",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "Product",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductCategory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductDescription",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductInventory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductModel",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductModelProductDescriptionCulture",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductPhoto",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductProductPhoto",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductReview",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductSubcategory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ScrapReason",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "TransactionHistory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "TransactionHistoryArchive",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "UnitMeasure",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "WorkOrder",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "WorkOrderRouting",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"hr_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "HumanResources",
+						"table": "Shift",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "Department",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "vw_Employee_Clean",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "EmployeeDepartmentHistory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "EmployeePayHistory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "JobCandidate",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"purchasing_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Purchasing",
+						"table": "ProductVendor",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "PurchaseOrderDetail",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "PurchaseOrderHeader",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "ShipMethod",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "Vendor",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			}
+		},
+		"variables": {
+			"current_timestamp": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-01-11T10:05:44Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}
