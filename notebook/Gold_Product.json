@@ -1,0 +1,248 @@
+{
+	"name": "Gold_Product",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkPool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "0974ac7d-5307-48cb-a933-919e08080989"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5fc955a9-5f26-4bec-b815-30115c8d5b68/resourceGroups/Mark_2/providers/Microsoft.Synapse/workspaces/contoso200709/bigDataPools/SparkPool",
+				"name": "SparkPool",
+				"type": "Spark",
+				"endpoint": "https://contoso200709.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.5",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.functions import *\n",
+					"from pyspark.sql.types import *\n",
+					"from delta.tables import DeltaTable\n",
+					"from pyspark.sql.window import Window\n",
+					""
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"source_schema = 'silver_sales'\n",
+					"\n",
+					"target_schema = 'gold_sales'\n",
+					"\n",
+					"surrogate_Key = 'DimProductKey'\n",
+					"\n",
+					"key_col = 'ProductID'"
+				],
+				"execution_count": 54
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"df_src = spark.sql(f\"\"\"\n",
+					"\t\t\t\t\tSELECT\n",
+					"\t\t\t\t\t\tP.ProductID, P.`Name` AS ProductName, P.ProductNumber, P.MakeFlag, P.FinishedGoodsFlag,\n",
+					"\t\t\t\t\t\tP.Color, P.SafetyStockLevel, P.ReorderPoint, P.StandardCost, P.ListPrice, P.Size,\n",
+					"\t\t\t\t\t\tP.SizeUnitMeasureCode, P.WeightUnitMeasureCode, P.[Weight], P.DaysToManufacture,\n",
+					"\t\t\t\t\t\tP.ProductLine, P.Class, P.Style, P.ProductModelID, \n",
+					"\t\t\t\t\t\tP.SellStartDate, P.SellEndDate, P.DiscontinuedDate, P.ProductSubcategoryID,\n",
+					"\t\t\t\t\t\tPS.`Name` AS ProductSubcategory, PS.ProductCategoryID, PC.`Name` AS ProductCategory\n",
+					"\t\t\t\t\tFROM silver_sales.`Product` P\n",
+					"\t\t\t\t\tLEFT JOIN silver_sales.[ProductSubcategory] PS\n",
+					"\t\t\t\t\tON P.ProductSubcategoryID = PS.ProductSubcategoryID\n",
+					"\t\t\t\t\tLEFT JOIN silver_sales.[ProductCategory] PC\n",
+					"\t\t\t\t\tON PS.ProductCategoryID = PC.ProductCategoryID\n",
+					"\t\t\t\t\"\"\")"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"if spark.catalog.tableExists(F\"{target_schema}.DimProduct\"):\n",
+					"    df_trg = spark.sql(f\"\"\"\n",
+					"                    SELECT {key_col}, {surrogate_Key}, CreatedAt, UpdatedAt\n",
+					"                    FROM {target_schema}.DimProduct\n",
+					"                    \"\"\")\n",
+					"\n",
+					"else:\n",
+					"    df_trg = spark.sql(f\"\"\"\n",
+					"                    SELECT \n",
+					"                    CAST('0' AS INT) AS {key_col}, \n",
+					"                    CAST('0' AS INT) AS {surrogate_Key}, \n",
+					"                    CAST('1900-01-01 00:00:00' AS TIMESTAMP) AS CreatedAt,\n",
+					"                    CAST('1900-01-01 00:00:00' AS TIMESTAMP) AS UpdatedAt\n",
+					"                    WHERE 1=0\n",
+					"                    \"\"\")"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_src.createOrReplaceTempView(\"src\")\n",
+					"df_trg.createOrReplaceTempView(\"trg\")\n",
+					"\n",
+					"df_join = spark.sql(f\"\"\"\n",
+					"                SELECT \n",
+					"                src.*,\n",
+					"                trg.{surrogate_Key},\n",
+					"                trg.CreatedAt,\n",
+					"                trg.UpdatedAt\n",
+					"                FROM\n",
+					"                src LEFT JOIN trg\n",
+					"                ON src.{key_col} = trg.{key_col}\n",
+					"            \"\"\")"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_old = df_join.filter(col(f\"{surrogate_Key}\").isNotNull())\n",
+					"\n",
+					"df_new = df_join.filter(col(f\"{surrogate_Key}\").isNull())"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if spark.catalog.tableExists(F\"{target_schema}.DimProduct\"):\n",
+					"    max_surrogate_key = spark.sql(f\"\"\"\n",
+					"                        SELECT MAX({surrogate_Key}) from {target_schema}.DimProduct\n",
+					"                        \"\"\").collect()[0][0]\n",
+					"    w = Window.orderBy(monotonically_increasing_id())\n",
+					"\n",
+					"    df_new_enr = df_new.withColumn(f\"{surrogate_Key}\", row_number().over(w) + lit(max_surrogate_key))\\\n",
+					"                        .withColumn(\"CreatedAt\", current_timestamp())\\\n",
+					"                        .withColumn(\"UpdatedAt\", current_timestamp())\n",
+					"\n",
+					"else:\n",
+					"    max_surrogate_key = 0\n",
+					"    w = Window.orderBy(monotonically_increasing_id())\n",
+					"\n",
+					"    df_new_enr = df_new.withColumn(f\"{surrogate_Key}\", row_number().over(w) + lit(max_surrogate_key))\\\n",
+					"                        .withColumn(\"CreatedAt\", current_timestamp())\\\n",
+					"                        .withColumn(\"UpdatedAt\", current_timestamp())\n",
+					"\n",
+					"max_surrogate_key"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_union = df_old_enr.unionByName(df_new_enr)\n",
+					"\n",
+					"df_union.createOrReplaceTempView(\"df_final\")"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if spark.catalog.tableExists(f\"{target_schema}.DimProduct\"):\n",
+					"    spark.sql(F\"\"\"\n",
+					"            MERGE INTO {target_schema}.DimProduct AS trg\n",
+					"            USING df_final AS src\n",
+					"            ON trg.{surrogate_Key} = src.{surrogate_Key}\n",
+					"            AND trg.IsCurrent = 'Y'\n",
+					"\n",
+					"            WHEN MATCHED AND (\n",
+					"                trg.MakeFlag <> src.MakeFlag OR\n",
+					"                trg.ProductName <> src.ProductName OR\n",
+					"                trg.ProductNumber <> src.ProductNumber OR\n",
+					"                trg.FinishedGoodFlag <> src.FinishedGoodFlag OR\n",
+					"                trg.Color <> src.Color OR\n",
+					"                trg.SafetyStockLevel <> src.SafetyStockLevel OR\n",
+					"                trg.ReorderPoint <> src.ReorderPoint OR\n",
+					"                trg.StandardCost <> src.StandardCost OR\n",
+					"                trg.ListPrice <> src.ListPrice OR\n",
+					"                trg.Size <> src.Size OR\n",
+					"                trg.SizeUnitMeasureCode <> src.SizeUnitMeasureCode\n",
+					"                trg.WeightUnitMeasureCode <> src.WeightUnitMeasureCode OR\n",
+					"                trg.Weight <> src.Weight OR\n",
+					"                trg.DaysToManufacture <> src.DaysToManufacture OR\n",
+					"                trg.ProductLine <> src.ProductLine OR\n",
+					"                trg.Class <> src.Class OR\n",
+					"                trg.Style <> src.Style OR\n",
+					"                trg.ProductModelID <> src.ProductModelID OR\n",
+					"                trg.ProductSubcategory <> src.ProductSubcategory OR\n",
+					"                trg.ProductCategory <> src.ProductCategory\n",
+					"            )\n",
+					"            THEN UPDATE SET\n",
+					"                trg.IsCurrent = 'N',\n",
+					"                trg.EndDate = Current_Timestamp();\n",
+					"    \"\"\")\n",
+					"\n",
+					"    spark.sql(f\"\"\"\n",
+					"            MERGE INTO {target_schema}.DimProduct AS trg\n",
+					"            USING df_final AS src\n",
+					"            ON trg.{surrogate_Key} = src.{surrogate_Key}\n",
+					"            AND trg.IsCurrent = 'Y'\n",
+					"            WHEN NOT MATCHED THEN INSERT *\n",
+					"\n",
+					"    \"\"\")\n",
+					"\n",
+					"else:\n",
+					"    df_union.write.format(\"delta\")\\\n",
+					"                    .mode(\"append\")\\\n",
+					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimProduct\")\\\n",
+					"                    .saveAsTable(f\"{target_schema}.DimProduct\")"
+				],
+				"execution_count": 62
+			}
+		]
+	}
+}
