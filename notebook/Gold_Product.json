@@ -18,7 +18,7 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "0974ac7d-5307-48cb-a933-919e08080989"
+				"spark.autotune.trackingId": "b796c552-d711-4c8a-90a3-195080af7151"
 			}
 		},
 		"metadata": {
@@ -26,7 +26,7 @@
 			"enableDebugMode": false,
 			"kernelspec": {
 				"name": "synapse_pyspark",
-				"display_name": "python"
+				"display_name": "Synapse PySpark"
 			},
 			"language_info": {
 				"name": "python"
@@ -58,7 +58,7 @@
 					"from pyspark.sql.window import Window\n",
 					""
 				],
-				"execution_count": 53
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -71,7 +71,7 @@
 					"\n",
 					"key_col = 'ProductID'"
 				],
-				"execution_count": 54
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -94,7 +94,7 @@
 					"\t\t\t\t\tON PS.ProductCategoryID = PC.ProductCategoryID\n",
 					"\t\t\t\t\"\"\")"
 				],
-				"execution_count": 55
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -118,7 +118,7 @@
 					"                    WHERE 1=0\n",
 					"                    \"\"\")"
 				],
-				"execution_count": 56
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -137,7 +137,7 @@
 					"                ON src.{key_col} = trg.{key_col}\n",
 					"            \"\"\")"
 				],
-				"execution_count": 57
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -146,14 +146,14 @@
 					"\n",
 					"df_new = df_join.filter(col(f\"{surrogate_Key}\").isNull())"
 				],
-				"execution_count": 58
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
 				"source": [
 					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
 				],
-				"execution_count": 59
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -178,7 +178,7 @@
 					"\n",
 					"max_surrogate_key"
 				],
-				"execution_count": 60
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -187,7 +187,7 @@
 					"\n",
 					"df_union.createOrReplaceTempView(\"df_final\")"
 				],
-				"execution_count": 61
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -241,7 +241,7 @@
 					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimProduct\")\\\n",
 					"                    .saveAsTable(f\"{target_schema}.DimProduct\")"
 				],
-				"execution_count": 62
+				"execution_count": null
 			}
 		]
 	}
