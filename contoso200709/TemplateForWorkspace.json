@@ -2882,6 +2882,26 @@
 			"dependsOn": []
 		},
 		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT * FROM gold_sales.dbo.dimsalesperson\n\n\nSELECT\nDISTINCT YEAR(OrderDate) \nFROM gold_sales.dbo.factorder\n\n\nSELECT \nSalesPersonId, SUM(SubTotal) AS Sales\nFROM silver_sales.dbo.salesorderheader\nWHERE YEAR(OrderDate) = 2014\nGROUP BY SalesPersonID\nORDER BY SUM(SubTotal) DESC\n\nSELECT * FROM silver_sales.\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "silver_sales",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/Gold_Fact_Order')]",
 			"type": "Microsoft.Synapse/workspaces/notebooks",
 			"apiVersion": "2019-06-01-preview",
@@ -4067,7 +4087,7 @@
 						"spark.dynamicAllocation.enabled": "false",
 						"spark.dynamicAllocation.minExecutors": "2",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "cd83a1f3-23b2-4bf7-8229-46906ec40ebe"
+						"spark.autotune.trackingId": "6b185310-9a29-4365-9ecd-957a9884b651"
 					}
 				},
 				"metadata": {
@@ -4106,7 +4126,7 @@
 							"from pyspark.sql.window import Window"
 						],
 						"outputs": [],
-						"execution_count": 1
+						"execution_count": 13
 					},
 					{
 						"cell_type": "code",
@@ -4120,7 +4140,7 @@
 							"key_col = 'SalesPersonID'"
 						],
 						"outputs": [],
-						"execution_count": 2
+						"execution_count": 14
 					},
 					{
 						"cell_type": "code",
@@ -4128,10 +4148,12 @@
 							"df_src = spark.sql(f\"\"\"\n",
 							"                SELECT\n",
 							"                    sp.BusinessEntityID AS SalesPersonID,\n",
+							"                    sp.SalesQuota,\n",
+							"                    sp.CommissionPct,\n",
+							"                    sp.Bonus,\n",
 							"                    p.PersonType, p.Title, p.FirstName, p.MiddleName, p.LastName,\n",
 							"                    p.EmailPromotion, pp.PhoneNumber, pnt.`Name` AS PhoneNumberType,\n",
 							"                    ed.EmailAddress,\n",
-							"                    sp.SalesQuota,\n",
 							"                    st.`Name` AS TerritoryName,\n",
 							"                    CURRENT_TIMESTAMP() AS StartDate,\n",
 							"                    CAST('3000-12-31 00:00:00' AS TIMESTAMP) AS EndDate,\n",
@@ -4150,7 +4172,7 @@
 							"                \"\"\")"
 						],
 						"outputs": [],
-						"execution_count": 3
+						"execution_count": 15
 					},
 					{
 						"cell_type": "code",
@@ -4174,7 +4196,7 @@
 							"                    \"\"\")"
 						],
 						"outputs": [],
-						"execution_count": 4
+						"execution_count": 16
 					},
 					{
 						"cell_type": "code",
@@ -4195,7 +4217,7 @@
 							"                \"\"\")"
 						],
 						"outputs": [],
-						"execution_count": 5
+						"execution_count": 17
 					},
 					{
 						"cell_type": "code",
@@ -4205,7 +4227,7 @@
 							"df_new = df_join.filter(col(f\"{surrogate_key}\").isNull())"
 						],
 						"outputs": [],
-						"execution_count": 6
+						"execution_count": 18
 					},
 					{
 						"cell_type": "code",
@@ -4213,7 +4235,7 @@
 							"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
 						],
 						"outputs": [],
-						"execution_count": 7
+						"execution_count": 19
 					},
 					{
 						"cell_type": "code",
@@ -4235,7 +4257,7 @@
 							"max_surrogate_key"
 						],
 						"outputs": [],
-						"execution_count": 8
+						"execution_count": 20
 					},
 					{
 						"cell_type": "code",
@@ -4248,7 +4270,7 @@
 							"df_union.createOrReplaceTempView(\"df_final\")"
 						],
 						"outputs": [],
-						"execution_count": 9
+						"execution_count": 21
 					},
 					{
 						"cell_type": "code",
@@ -4262,6 +4284,8 @@
 							"\n",
 							"            WHEN MATCHED AND (\n",
 							"                trg.PersonType <> src.PersonType OR\n",
+							"                trg.Bonus <> src.Bonus OR\n",
+							"                trg.CommissionPct <> src.CommissionPct OR\n",
 							"                trg.FirstName <> src.FirstName OR\n",
 							"                trg.MiddleName <> src.MiddleName OR\n",
 							"                trg.LastName <> src.LastName OR\n",
@@ -4292,7 +4316,7 @@
 							"                    .saveAsTable(f\"{target_schema}.DimSalesPerson\")"
 						],
 						"outputs": [],
-						"execution_count": 10
+						"execution_count": 22
 					}
 				]
 			},
