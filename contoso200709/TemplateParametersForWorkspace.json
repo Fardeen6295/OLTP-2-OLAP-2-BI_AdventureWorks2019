@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"value": "contoso200709"
+		},
+		"contoso200709-WorkspaceDefaultSqlServer_connectionString": {
+			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:contoso200709.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"ls_on_prem_sql_server_password": {
+			"value": ""
+		},
+		"contoso200709-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"value": "https://contosomang200709.dfs.core.windows.net"
+		},
+		"ls_dl_contoso0709_properties_typeProperties_url": {
+			"value": "https://dlcontoso.dfs.core.windows.net/"
+		},
+		"ls_on_prem_sql_server_properties_typeProperties_server": {
+			"value": "KHANBIENG\\SQLEXPRESS"
+		},
+		"ls_on_prem_sql_server_properties_typeProperties_database": {
+			"value": "AdventureWorks"
+		},
+		"ls_on_prem_sql_server_properties_typeProperties_userName": {
+			"value": "sa"
+		}
+	}
+}
