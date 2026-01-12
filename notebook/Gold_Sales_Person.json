@@ -18,15 +18,16 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "8b75417a-b2db-4ef6-aa09-0ada758edace"
+				"spark.autotune.trackingId": "cd83a1f3-23b2-4bf7-8229-46906ec40ebe"
 			}
 		},
 		"metadata": {
 			"saveOutput": true,
-			"synapse_widget": {
-				"version": "0.1"
-			},
 			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
 			"language_info": {
 				"name": "python"
 			},
@@ -37,14 +38,13 @@
 				"endpoint": "https://contoso200709.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net",
-					"authHeader": null
+					"authResource": "https://dev.azuresynapse.net"
 				},
 				"sparkVersion": "3.5",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"extraHeader": null
+				"automaticScaleJobs": false
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -57,7 +57,7 @@
 					"from delta.tables import DeltaTable\n",
 					"from pyspark.sql.window import Window"
 				],
-				"execution_count": 48
+				"execution_count": 1
 			},
 			{
 				"cell_type": "code",
@@ -70,7 +70,7 @@
 					"\n",
 					"key_col = 'SalesPersonID'"
 				],
-				"execution_count": 49
+				"execution_count": 2
 			},
 			{
 				"cell_type": "code",
@@ -99,7 +99,7 @@
 					"                ON sp.TerritoryID = st.TerritoryID\n",
 					"                \"\"\")"
 				],
-				"execution_count": 50
+				"execution_count": 3
 			},
 			{
 				"cell_type": "code",
@@ -122,7 +122,7 @@
 					"                    WHERE 1=0\n",
 					"                    \"\"\")"
 				],
-				"execution_count": 51
+				"execution_count": 4
 			},
 			{
 				"cell_type": "code",
@@ -142,7 +142,7 @@
 					"                ON src.{key_col} = trg.{key_col}\n",
 					"                \"\"\")"
 				],
-				"execution_count": 52
+				"execution_count": 5
 			},
 			{
 				"cell_type": "code",
@@ -151,14 +151,14 @@
 					"\n",
 					"df_new = df_join.filter(col(f\"{surrogate_key}\").isNull())"
 				],
-				"execution_count": 53
+				"execution_count": 6
 			},
 			{
 				"cell_type": "code",
 				"source": [
 					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
 				],
-				"execution_count": 54
+				"execution_count": 7
 			},
 			{
 				"cell_type": "code",
@@ -179,7 +179,7 @@
 					"                        .withColumn(\"UpdatedAt\", current_timestamp())\n",
 					"max_surrogate_key"
 				],
-				"execution_count": 55
+				"execution_count": 8
 			},
 			{
 				"cell_type": "code",
@@ -191,7 +191,7 @@
 					"\n",
 					"df_union.createOrReplaceTempView(\"df_final\")"
 				],
-				"execution_count": 56
+				"execution_count": 9
 			},
 			{
 				"cell_type": "code",
@@ -234,7 +234,7 @@
 					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimSalesPerson\")\\\n",
 					"                    .saveAsTable(f\"{target_schema}.DimSalesPerson\")"
 				],
-				"execution_count": 57
+				"execution_count": 10
 			}
 		]
 	}
