@@ -18,15 +18,16 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "c688e199-10f6-4e83-841c-c3601ff794d5"
+				"spark.autotune.trackingId": "6dbac1d1-b248-4fb4-a2a9-9a6bf37ebb89"
 			}
 		},
 		"metadata": {
 			"saveOutput": true,
-			"synapse_widget": {
-				"version": "0.1"
-			},
 			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
 			"language_info": {
 				"name": "python"
 			},
@@ -37,14 +38,13 @@
 				"endpoint": "https://contoso200709.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net",
-					"authHeader": null
+					"authResource": "https://dev.azuresynapse.net"
 				},
 				"sparkVersion": "3.5",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"extraHeader": null
+				"automaticScaleJobs": false
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -58,7 +58,7 @@
 					"from pyspark.sql.window import Window\n",
 					""
 				],
-				"execution_count": 53
+				"execution_count": 2
 			},
 			{
 				"cell_type": "code",
@@ -71,7 +71,7 @@
 					"\n",
 					"key_col = 'CustomerID'"
 				],
-				"execution_count": 54
+				"execution_count": 3
 			},
 			{
 				"cell_type": "code",
@@ -118,7 +118,7 @@
 					"ORDER BY CustomerID\n",
 					"\"\"\")"
 				],
-				"execution_count": 55
+				"execution_count": 4
 			},
 			{
 				"cell_type": "code",
@@ -142,7 +142,7 @@
 					"                    WHERE 1=0\n",
 					"                    \"\"\")"
 				],
-				"execution_count": 56
+				"execution_count": 5
 			},
 			{
 				"cell_type": "code",
@@ -161,7 +161,7 @@
 					"                ON src.{key_col} = trg.{key_col}\n",
 					"            \"\"\")"
 				],
-				"execution_count": 57
+				"execution_count": 6
 			},
 			{
 				"cell_type": "code",
@@ -170,14 +170,14 @@
 					"\n",
 					"df_new = df_join.filter(col(f\"{surrogate_Key}\").isNull())"
 				],
-				"execution_count": 58
+				"execution_count": 7
 			},
 			{
 				"cell_type": "code",
 				"source": [
 					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
 				],
-				"execution_count": 59
+				"execution_count": 8
 			},
 			{
 				"cell_type": "code",
@@ -202,7 +202,7 @@
 					"\n",
 					"max_surrogate_key"
 				],
-				"execution_count": 60
+				"execution_count": 9
 			},
 			{
 				"cell_type": "code",
@@ -211,7 +211,7 @@
 					"\n",
 					"df_union.createOrReplaceTempView(\"df_final\")"
 				],
-				"execution_count": 61
+				"execution_count": 10
 			},
 			{
 				"cell_type": "code",
@@ -256,7 +256,7 @@
 					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimRetailCustomer\")\\\n",
 					"                    .saveAsTable(f\"{target_schema}.DimRetailCustomer\")"
 				],
-				"execution_count": 62
+				"execution_count": 11
 			}
 		]
 	}
