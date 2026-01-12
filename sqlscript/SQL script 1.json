@@ -2,7 +2,7 @@
 	"name": "SQL script 1",
 	"properties": {
 		"content": {
-			"query": "SELECT * FROM gold_sales.dbo.dimsalesperson\n\n\nSELECT\nDISTINCT YEAR(OrderDate) \nFROM gold_sales.dbo.factorder\n\n\nSELECT \nSalesPersonId, SUM(SubTotal) AS Sales\nFROM silver_sales.dbo.salesorderheader\nWHERE YEAR(OrderDate) = 2011\nGROUP BY SalesPersonID\nORDER BY SUM(SubTotal) DESC\n",
+			"query": "SELECT * FROM gold_sales.dbo.dimsalesperson\n\n\nSELECT\nDISTINCT YEAR(OrderDate) \nFROM gold_sales.dbo.factorder\n\n\nSELECT \nSalesPersonId, SUM(SubTotal) AS Sales\nFROM silver_sales.dbo.salesorderheader\nWHERE YEAR(OrderDate) = 2014\nGROUP BY SalesPersonID\nORDER BY SUM(SubTotal) DESC\n\nSELECT * FROM silver_sales.\n",
 			"metadata": {
 				"language": "sql"
 			},
