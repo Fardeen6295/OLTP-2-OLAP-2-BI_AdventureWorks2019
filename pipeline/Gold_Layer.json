@@ -20,17 +20,8 @@
 						"type": "NotebookReference"
 					},
 					"snapshot": true,
-					"sparkPool": {
-						"referenceName": "SparkPool",
-						"type": "BigDataPoolReference"
-					},
-					"executorSize": "Small",
 					"conf": {
 						"spark.dynamicAllocation.enabled": true
-					},
-					"driverSize": "Small",
-					"authentication": {
-						"type": "MSI"
 					}
 				}
 			},
@@ -59,17 +50,8 @@
 						"type": "NotebookReference"
 					},
 					"snapshot": true,
-					"sparkPool": {
-						"referenceName": "SparkPool",
-						"type": "BigDataPoolReference"
-					},
-					"executorSize": "Small",
 					"conf": {
 						"spark.dynamicAllocation.enabled": true
-					},
-					"driverSize": "Small",
-					"authentication": {
-						"type": "MSI"
 					}
 				}
 			},
@@ -98,17 +80,8 @@
 						"type": "NotebookReference"
 					},
 					"snapshot": true,
-					"sparkPool": {
-						"referenceName": "SparkPool",
-						"type": "BigDataPoolReference"
-					},
-					"executorSize": "Small",
 					"conf": {
 						"spark.dynamicAllocation.enabled": true
-					},
-					"driverSize": "Small",
-					"authentication": {
-						"type": "MSI"
 					}
 				}
 			},
@@ -137,17 +110,8 @@
 						"type": "NotebookReference"
 					},
 					"snapshot": true,
-					"sparkPool": {
-						"referenceName": "SparkPool",
-						"type": "BigDataPoolReference"
-					},
-					"executorSize": "Small",
 					"conf": {
 						"spark.dynamicAllocation.enabled": true
-					},
-					"driverSize": "Small",
-					"authentication": {
-						"type": "MSI"
 					}
 				}
 			},
@@ -176,17 +140,8 @@
 						"type": "NotebookReference"
 					},
 					"snapshot": true,
-					"sparkPool": {
-						"referenceName": "SparkPool",
-						"type": "BigDataPoolReference"
-					},
-					"executorSize": "Small",
 					"conf": {
 						"spark.dynamicAllocation.enabled": true
-					},
-					"driverSize": "Small",
-					"authentication": {
-						"type": "MSI"
 					}
 				}
 			},
@@ -215,17 +170,8 @@
 						"type": "NotebookReference"
 					},
 					"snapshot": true,
-					"sparkPool": {
-						"referenceName": "SparkPool",
-						"type": "BigDataPoolReference"
-					},
-					"executorSize": "Small",
 					"conf": {
 						"spark.dynamicAllocation.enabled": true
-					},
-					"driverSize": "Small",
-					"authentication": {
-						"type": "MSI"
 					}
 				}
 			}
