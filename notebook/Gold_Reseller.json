@@ -18,7 +18,7 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "4dde9395-7c67-4d2c-b046-a48e4916bfb0"
+				"spark.autotune.trackingId": "0cd67938-cba8-4311-adbe-dc1df1f90fe7"
 			}
 		},
 		"metadata": {
@@ -26,7 +26,7 @@
 			"enableDebugMode": false,
 			"kernelspec": {
 				"name": "synapse_pyspark",
-				"display_name": "python"
+				"display_name": "Synapse PySpark"
 			},
 			"language_info": {
 				"name": "python"
@@ -58,7 +58,7 @@
 					"from pyspark.sql.window import Window\n",
 					""
 				],
-				"execution_count": 53
+				"execution_count": 41
 			},
 			{
 				"cell_type": "code",
@@ -71,7 +71,7 @@
 					"\n",
 					"key_col = 'CustomerID'"
 				],
-				"execution_count": 54
+				"execution_count": 42
 			},
 			{
 				"cell_type": "code",
@@ -82,16 +82,19 @@
 					"df_src = spark.sql(f\"\"\"\n",
 					"SELECT \n",
 					"\tc.CustomerID, c.PersonID, c.StoreID, c.AccountNumber,\n",
-					"\tsto.`Name` as StoreName,\n",
+					"\tsto.`Name` as StoreName, sto.SalesPersonID,\n",
 					"\ta.AddressLine1, a.City, a.PostalCode, \n",
 					"\tsp.`Name` as StateProvinceName, sp.StateProvinceCode, \n",
 					"\tcr.`Name` as CountryName, st.CountryRegionCode as CountryCode,\n",
-					"\tst.`Name` as Territory, st.[Group],\n",
+					"\tst.`Name` as Territory, st.`Group`,\n",
 					"\tadt.`Name` as AddressType,\n",
 					"\tp.PersonType, p.Title, p.FirstName, p.MiddleName, p.LastName,\n",
 					"\tpp.PhoneNumber,\n",
-					"\tpnt.`Name` as PhoneNumberType\n",
-					"FROM silver_sales.Customer c\n",
+					"\tpnt.`Name` as PhoneNumberType,\n",
+					"\tCURRENT_TIMESTAMP() AS StartDate,\n",
+					"    CAST('3000-12-31 00:00:00' AS TIMESTAMP) AS EndDate,\n",
+					"    'Y' AS IsCurrent\n",
+					"FROM silver_sales.reseller c\n",
 					"LEFT JOIN silver_sales.BusinessEntityAddress bea\n",
 					"ON c.StoreID = bea.BusinessEntityID AND bea.AddressTypeID = 3\n",
 					"LEFT JOIN silver_sales.Address a\n",
@@ -115,7 +118,7 @@
 					"WHERE StoreID IS NOT NULL\n",
 					"\"\"\")"
 				],
-				"execution_count": 55
+				"execution_count": 43
 			},
 			{
 				"cell_type": "code",
@@ -139,7 +142,7 @@
 					"                    WHERE 1=0\n",
 					"                    \"\"\")"
 				],
-				"execution_count": 56
+				"execution_count": 44
 			},
 			{
 				"cell_type": "code",
@@ -158,7 +161,7 @@
 					"                ON src.{key_col} = trg.{key_col}\n",
 					"            \"\"\")"
 				],
-				"execution_count": 57
+				"execution_count": 45
 			},
 			{
 				"cell_type": "code",
@@ -167,14 +170,14 @@
 					"\n",
 					"df_new = df_join.filter(col(f\"{surrogate_Key}\").isNull())"
 				],
-				"execution_count": 58
+				"execution_count": 46
 			},
 			{
 				"cell_type": "code",
 				"source": [
 					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
 				],
-				"execution_count": 59
+				"execution_count": 47
 			},
 			{
 				"cell_type": "code",
@@ -199,7 +202,7 @@
 					"\n",
 					"max_surrogate_key"
 				],
-				"execution_count": 60
+				"execution_count": 48
 			},
 			{
 				"cell_type": "code",
@@ -208,7 +211,7 @@
 					"\n",
 					"df_union.createOrReplaceTempView(\"df_final\")"
 				],
-				"execution_count": 61
+				"execution_count": 49
 			},
 			{
 				"cell_type": "code",
@@ -225,6 +228,7 @@
 					"                trg.StoreID <> src.StoreID OR\n",
 					"                trg.AccountNumber <> src.AccountNumber OR\n",
 					"                trg.StoreName <> src.StoreName OR\n",
+					"                trg.SalesPersonID <> src.SalesPersonID OR\n",
 					"                trg.AddressLine1 <> src.AddressLine1 OR\n",
 					"                trg.City <> src.City OR\n",
 					"                trg.PostalCode <> src.PostalCode OR\n",
@@ -260,7 +264,7 @@
 					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimReseller\")\\\n",
 					"                    .saveAsTable(f\"{target_schema}.DimReseller\")"
 				],
-				"execution_count": 62
+				"execution_count": 50
 			}
 		]
 	}
