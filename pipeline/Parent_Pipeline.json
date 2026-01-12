@@ -1,0 +1,473 @@
+{
+	"name": "Parent_Pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "Bronze",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "On_Prem_To_DL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"sales_tables_loop": {
+							"value": "@pipeline().parameters.sales_tables_loop",
+							"type": "Expression"
+						},
+						"person_tables_loop": {
+							"value": "@pipeline().parameters.person_tables_loop",
+							"type": "Expression"
+						},
+						"production_tables_loop": {
+							"value": "@pipeline().parameters.production_tables_loop",
+							"type": "Expression"
+						},
+						"hr_tables_loop": {
+							"value": "@pipeline().parameters.hr_tables_loop",
+							"type": "Expression"
+						},
+						"purchasing_tables_loop": {
+							"value": "@pipeline().parameters.purchasing_tables_loop",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Silver",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Bronze",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Silver_Layer",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "Gold",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Silver",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Gold_Layer",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"parameters": {
+			"sales_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Sales",
+						"table": "CountryRegionCurrency",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "CreditCard",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "Currency",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "CurrencyRate",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "Customer",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "PersonCreditCard",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesOrderDetail",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesOrderHeader",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesOrderHeaderSalesReason",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesReason",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesTaxRate",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesTerritory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SpecialOffer",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SpecialOfferProduct",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "Store",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Sales",
+						"table": "SalesPerson",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"person_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Person",
+						"table": "vw_Address_Clean",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "AddressType",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "BusinessEntity",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "BusinessEntityAddress",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "BusinessEntityContact",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "ContactType",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "CountryRegion",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "EmailAddress",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "Password",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "Person",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "PersonPhone",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "PhoneNumberType",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Person",
+						"table": "StateProvince",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"production_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Production",
+						"table": "BillOfMaterials",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "Culture",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "Location",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "Product",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductCategory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductDescription",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductInventory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductModel",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductModelProductDescriptionCulture",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductPhoto",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductProductPhoto",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductReview",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ProductSubcategory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "ScrapReason",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "TransactionHistory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "TransactionHistoryArchive",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "UnitMeasure",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "WorkOrder",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Production",
+						"table": "WorkOrderRouting",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"hr_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "HumanResources",
+						"table": "Shift",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "Department",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "vw_Employee_Clean",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "EmployeeDepartmentHistory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "EmployeePayHistory",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "HumanResources",
+						"table": "JobCandidate",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			},
+			"purchasing_tables_loop": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "Purchasing",
+						"table": "ProductVendor",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "PurchaseOrderDetail",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "PurchaseOrderHeader",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "ShipMethod",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					},
+					{
+						"schema": "Purchasing",
+						"table": "Vendor",
+						"cdc": "ModifiedDate",
+						"backdate": ""
+					}
+				]
+			}
+		},
+		"annotations": []
+	}
+}
