@@ -18,7 +18,7 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "086a637c-a70b-42ab-9b80-1322f5e000c9"
+				"spark.autotune.trackingId": "7e7847ed-5413-46d3-a44f-4016f84cc3de"
 			}
 		},
 		"metadata": {
@@ -57,7 +57,7 @@
 					"from delta.tables import DeltaTable\n",
 					"from pyspark.sql.window import Window"
 				],
-				"execution_count": 1
+				"execution_count": 7
 			},
 			{
 				"cell_type": "markdown",
@@ -83,7 +83,7 @@
 					"\n",
 					"cdc_col = 'ModifiedDate'"
 				],
-				"execution_count": 2
+				"execution_count": 8
 			},
 			{
 				"cell_type": "code",
@@ -100,7 +100,7 @@
 					"\n",
 					"last_load_date"
 				],
-				"execution_count": 3
+				"execution_count": 9
 			},
 			{
 				"cell_type": "code",
@@ -114,7 +114,7 @@
 					"\n",
 					"df_src.count()"
 				],
-				"execution_count": 4
+				"execution_count": 10
 			},
 			{
 				"cell_type": "code",
@@ -144,7 +144,7 @@
 					"                    AND sh.OrderDate < dsp.EndDate\n",
 					"                \"\"\")"
 				],
-				"execution_count": 5
+				"execution_count": 11
 			},
 			{
 				"cell_type": "code",
@@ -161,7 +161,7 @@
 					"                .option('path', 'abfss://gold@dlcontoso.dfs.core.windows.net/sales/FactOrder')\\\n",
 					"                .saveAsTable('gold_sales.FactOrder')"
 				],
-				"execution_count": 6
+				"execution_count": 12
 			}
 		]
 	}
