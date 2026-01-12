@@ -12,7 +12,7 @@
 						"value": "@pipeline().parameters.sales_tables_loop",
 						"type": "Expression"
 					},
-					"isSequential": true,
+					"isSequential": false,
 					"activities": [
 						{
 							"name": "Last_cdc_date",
@@ -304,7 +304,7 @@
 						"value": "@pipeline().parameters.person_tables_loop",
 						"type": "Expression"
 					},
-					"isSequential": true,
+					"isSequential": false,
 					"activities": [
 						{
 							"name": "PLast_cdc_date",
@@ -596,7 +596,7 @@
 						"value": "@pipeline().parameters.production_tables_loop",
 						"type": "Expression"
 					},
-					"isSequential": true,
+					"isSequential": false,
 					"activities": [
 						{
 							"name": "Prod_Last_cdc_date",
@@ -888,7 +888,7 @@
 						"value": "@pipeline().parameters.hr_tables_loop",
 						"type": "Expression"
 					},
-					"isSequential": true,
+					"isSequential": false,
 					"activities": [
 						{
 							"name": "HR_Last_cdc_date",
@@ -1180,7 +1180,7 @@
 						"value": "@pipeline().parameters.purchasing_tables_loop",
 						"type": "Expression"
 					},
-					"isSequential": true,
+					"isSequential": false,
 					"activities": [
 						{
 							"name": "Prch_Last_cdc_date",
