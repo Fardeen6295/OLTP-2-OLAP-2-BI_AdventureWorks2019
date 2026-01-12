@@ -18,7 +18,7 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "a0929286-1581-4bd1-8567-ba10a950cca5"
+				"spark.autotune.trackingId": "481096f9-81fe-43fd-9807-b8b71f95c1b8"
 			}
 		},
 		"metadata": {
@@ -58,7 +58,7 @@
 					"from pyspark.sql.window import Window\n",
 					""
 				],
-				"execution_count": null
+				"execution_count": 31
 			},
 			{
 				"cell_type": "code",
@@ -71,7 +71,7 @@
 					"\n",
 					"key_col = 'ProductID'"
 				],
-				"execution_count": null
+				"execution_count": 32
 			},
 			{
 				"cell_type": "code",
@@ -83,18 +83,21 @@
 					"\t\t\t\t\tSELECT\n",
 					"\t\t\t\t\t\tP.ProductID, P.`Name` AS ProductName, P.ProductNumber, P.MakeFlag, P.FinishedGoodsFlag,\n",
 					"\t\t\t\t\t\tP.Color, P.SafetyStockLevel, P.ReorderPoint, P.StandardCost, P.ListPrice, P.Size,\n",
-					"\t\t\t\t\t\tP.SizeUnitMeasureCode, P.WeightUnitMeasureCode, P.[Weight], P.DaysToManufacture,\n",
+					"\t\t\t\t\t\tP.SizeUnitMeasureCode, P.WeightUnitMeasureCode, P.`Weight`, P.DaysToManufacture,\n",
 					"\t\t\t\t\t\tP.ProductLine, P.Class, P.Style, P.ProductModelID, \n",
 					"\t\t\t\t\t\tP.SellStartDate, P.SellEndDate, P.DiscontinuedDate, P.ProductSubcategoryID,\n",
-					"\t\t\t\t\t\tPS.`Name` AS ProductSubcategory, PS.ProductCategoryID, PC.`Name` AS ProductCategory\n",
+					"\t\t\t\t\t\tPS.`Name` AS ProductSubcategory, PS.ProductCategoryID, PC.`Name` AS ProductCategory,\n",
+					"\t\t\t\t\t\tCURRENT_TIMESTAMP() AS StartDate,\n",
+					"                    \tCAST('3000-12-31 00:00:00' AS TIMESTAMP) AS EndDate,\n",
+					"                    \t'Y' AS IsCurrent\n",
 					"\t\t\t\t\tFROM silver_sales.`Product` P\n",
-					"\t\t\t\t\tLEFT JOIN silver_sales.[ProductSubcategory] PS\n",
+					"\t\t\t\t\tLEFT JOIN silver_sales.ProductSubcategory PS\n",
 					"\t\t\t\t\tON P.ProductSubcategoryID = PS.ProductSubcategoryID\n",
-					"\t\t\t\t\tLEFT JOIN silver_sales.[ProductCategory] PC\n",
+					"\t\t\t\t\tLEFT JOIN silver_sales.ProductCategory PC\n",
 					"\t\t\t\t\tON PS.ProductCategoryID = PC.ProductCategoryID\n",
 					"\t\t\t\t\"\"\")"
 				],
-				"execution_count": null
+				"execution_count": 33
 			},
 			{
 				"cell_type": "code",
@@ -118,7 +121,7 @@
 					"                    WHERE 1=0\n",
 					"                    \"\"\")"
 				],
-				"execution_count": null
+				"execution_count": 34
 			},
 			{
 				"cell_type": "code",
@@ -137,7 +140,7 @@
 					"                ON src.{key_col} = trg.{key_col}\n",
 					"            \"\"\")"
 				],
-				"execution_count": null
+				"execution_count": 35
 			},
 			{
 				"cell_type": "code",
@@ -146,14 +149,14 @@
 					"\n",
 					"df_new = df_join.filter(col(f\"{surrogate_Key}\").isNull())"
 				],
-				"execution_count": null
+				"execution_count": 36
 			},
 			{
 				"cell_type": "code",
 				"source": [
 					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
 				],
-				"execution_count": null
+				"execution_count": 37
 			},
 			{
 				"cell_type": "code",
@@ -178,7 +181,7 @@
 					"\n",
 					"max_surrogate_key"
 				],
-				"execution_count": null
+				"execution_count": 38
 			},
 			{
 				"cell_type": "code",
@@ -187,7 +190,7 @@
 					"\n",
 					"df_union.createOrReplaceTempView(\"df_final\")"
 				],
-				"execution_count": null
+				"execution_count": 39
 			},
 			{
 				"cell_type": "code",
@@ -203,14 +206,14 @@
 					"                trg.MakeFlag <> src.MakeFlag OR\n",
 					"                trg.ProductName <> src.ProductName OR\n",
 					"                trg.ProductNumber <> src.ProductNumber OR\n",
-					"                trg.FinishedGoodFlag <> src.FinishedGoodFlag OR\n",
+					"                trg.FinishedGoodsFlag <> src.FinishedGoodsFlag OR\n",
 					"                trg.Color <> src.Color OR\n",
 					"                trg.SafetyStockLevel <> src.SafetyStockLevel OR\n",
 					"                trg.ReorderPoint <> src.ReorderPoint OR\n",
 					"                trg.StandardCost <> src.StandardCost OR\n",
 					"                trg.ListPrice <> src.ListPrice OR\n",
 					"                trg.Size <> src.Size OR\n",
-					"                trg.SizeUnitMeasureCode <> src.SizeUnitMeasureCode\n",
+					"                trg.SizeUnitMeasureCode <> src.SizeUnitMeasureCode OR\n",
 					"                trg.WeightUnitMeasureCode <> src.WeightUnitMeasureCode OR\n",
 					"                trg.Weight <> src.Weight OR\n",
 					"                trg.DaysToManufacture <> src.DaysToManufacture OR\n",
@@ -241,7 +244,7 @@
 					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimProduct\")\\\n",
 					"                    .saveAsTable(f\"{target_schema}.DimProduct\")"
 				],
-				"execution_count": null
+				"execution_count": 40
 			}
 		]
 	}
