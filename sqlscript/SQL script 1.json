@@ -2,12 +2,12 @@
 	"name": "SQL script 1",
 	"properties": {
 		"content": {
-			"query": "SELECT * FROM gold_sales.dbo.dimsalesperson",
+			"query": "SELECT * FROM gold_sales.dbo.dimsalesperson\n\n\nSELECT\nDISTINCT YEAR(OrderDate) \nFROM gold_sales.dbo.factorder\n\n\nSELECT \nSalesPersonId, SUM(SubTotal) AS Sales\nFROM silver_sales.dbo.salesorderheader\nWHERE YEAR(OrderDate) = 2011\nGROUP BY SalesPersonID\nORDER BY SUM(SubTotal) DESC\n",
 			"metadata": {
 				"language": "sql"
 			},
 			"currentConnection": {
-				"databaseName": "master",
+				"databaseName": "silver_sales",
 				"poolName": "Built-in"
 			},
 			"resultLimit": 5000
