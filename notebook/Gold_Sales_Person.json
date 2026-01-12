@@ -18,7 +18,7 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "cd83a1f3-23b2-4bf7-8229-46906ec40ebe"
+				"spark.autotune.trackingId": "6b185310-9a29-4365-9ecd-957a9884b651"
 			}
 		},
 		"metadata": {
@@ -57,7 +57,7 @@
 					"from delta.tables import DeltaTable\n",
 					"from pyspark.sql.window import Window"
 				],
-				"execution_count": 1
+				"execution_count": 13
 			},
 			{
 				"cell_type": "code",
@@ -70,7 +70,7 @@
 					"\n",
 					"key_col = 'SalesPersonID'"
 				],
-				"execution_count": 2
+				"execution_count": 14
 			},
 			{
 				"cell_type": "code",
@@ -78,10 +78,12 @@
 					"df_src = spark.sql(f\"\"\"\n",
 					"                SELECT\n",
 					"                    sp.BusinessEntityID AS SalesPersonID,\n",
+					"                    sp.SalesQuota,\n",
+					"                    sp.CommissionPct,\n",
+					"                    sp.Bonus,\n",
 					"                    p.PersonType, p.Title, p.FirstName, p.MiddleName, p.LastName,\n",
 					"                    p.EmailPromotion, pp.PhoneNumber, pnt.`Name` AS PhoneNumberType,\n",
 					"                    ed.EmailAddress,\n",
-					"                    sp.SalesQuota,\n",
 					"                    st.`Name` AS TerritoryName,\n",
 					"                    CURRENT_TIMESTAMP() AS StartDate,\n",
 					"                    CAST('3000-12-31 00:00:00' AS TIMESTAMP) AS EndDate,\n",
@@ -99,7 +101,7 @@
 					"                ON sp.TerritoryID = st.TerritoryID\n",
 					"                \"\"\")"
 				],
-				"execution_count": 3
+				"execution_count": 15
 			},
 			{
 				"cell_type": "code",
@@ -122,7 +124,7 @@
 					"                    WHERE 1=0\n",
 					"                    \"\"\")"
 				],
-				"execution_count": 4
+				"execution_count": 16
 			},
 			{
 				"cell_type": "code",
@@ -142,7 +144,7 @@
 					"                ON src.{key_col} = trg.{key_col}\n",
 					"                \"\"\")"
 				],
-				"execution_count": 5
+				"execution_count": 17
 			},
 			{
 				"cell_type": "code",
@@ -151,14 +153,14 @@
 					"\n",
 					"df_new = df_join.filter(col(f\"{surrogate_key}\").isNull())"
 				],
-				"execution_count": 6
+				"execution_count": 18
 			},
 			{
 				"cell_type": "code",
 				"source": [
 					"df_old_enr = df_old.withColumn(\"UpdatedAt\", current_timestamp())"
 				],
-				"execution_count": 7
+				"execution_count": 19
 			},
 			{
 				"cell_type": "code",
@@ -179,7 +181,7 @@
 					"                        .withColumn(\"UpdatedAt\", current_timestamp())\n",
 					"max_surrogate_key"
 				],
-				"execution_count": 8
+				"execution_count": 20
 			},
 			{
 				"cell_type": "code",
@@ -191,7 +193,7 @@
 					"\n",
 					"df_union.createOrReplaceTempView(\"df_final\")"
 				],
-				"execution_count": 9
+				"execution_count": 21
 			},
 			{
 				"cell_type": "code",
@@ -205,6 +207,8 @@
 					"\n",
 					"            WHEN MATCHED AND (\n",
 					"                trg.PersonType <> src.PersonType OR\n",
+					"                trg.Bonus <> src.Bonus OR\n",
+					"                trg.CommissionPct <> src.CommissionPct OR\n",
 					"                trg.FirstName <> src.FirstName OR\n",
 					"                trg.MiddleName <> src.MiddleName OR\n",
 					"                trg.LastName <> src.LastName OR\n",
@@ -234,7 +238,7 @@
 					"                    .option(\"path\", \"abfss://gold@dlcontoso.dfs.core.windows.net/sales/DimSalesPerson\")\\\n",
 					"                    .saveAsTable(f\"{target_schema}.DimSalesPerson\")"
 				],
-				"execution_count": 10
+				"execution_count": 22
 			}
 		]
 	}
