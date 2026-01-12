@@ -52,34 +52,11 @@
 							}
 						},
 						{
-							"name": "Current_Timestamp",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "current_timestamp",
-								"value": {
-									"value": "@utcNow()",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "CheckNewRecords",
 							"type": "Script",
 							"dependsOn": [
 								{
 									"activity": "Last_cdc_date",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								},
-								{
-									"activity": "Current_Timestamp",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -185,7 +162,7 @@
 														"type": "Expression"
 													},
 													"p_file": {
-														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"value": "@{item().table}",
 														"type": "Expression"
 													}
 												}
@@ -313,8 +290,6 @@
 			{
 				"name": "ForEachPersonTable",
 				"type": "ForEach",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "ForEachSalesTable",
@@ -369,34 +344,11 @@
 							}
 						},
 						{
-							"name": "PCurrent_Timestamp",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "current_timestamp",
-								"value": {
-									"value": "@utcNow()",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "PCheckNewRecords",
 							"type": "Script",
 							"dependsOn": [
 								{
 									"activity": "PLast_cdc_date",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								},
-								{
-									"activity": "PCurrent_Timestamp",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -502,7 +454,7 @@
 														"type": "Expression"
 													},
 													"p_file": {
-														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"value": "@{item().table}",
 														"type": "Expression"
 													}
 												}
@@ -630,8 +582,6 @@
 			{
 				"name": "ForEachProductionTable",
 				"type": "ForEach",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "ForEachPersonTable",
@@ -686,34 +636,11 @@
 							}
 						},
 						{
-							"name": "Prod_Current_Timestamp",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "current_timestamp",
-								"value": {
-									"value": "@utcNow()",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "Prod_CheckNewRecords",
 							"type": "Script",
 							"dependsOn": [
 								{
 									"activity": "Prod_Last_cdc_date",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								},
-								{
-									"activity": "Prod_Current_Timestamp",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -819,7 +746,7 @@
 														"type": "Expression"
 													},
 													"p_file": {
-														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"value": "@{item().table}",
 														"type": "Expression"
 													}
 												}
@@ -947,8 +874,6 @@
 			{
 				"name": "ForEachHRTable",
 				"type": "ForEach",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "ForEachProductionTable",
@@ -1003,34 +928,11 @@
 							}
 						},
 						{
-							"name": "HR_Current_Timestamp",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "current_timestamp",
-								"value": {
-									"value": "@utcNow()",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "HR_CheckNewRecords",
 							"type": "Script",
 							"dependsOn": [
 								{
 									"activity": "HR_Last_cdc_date",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								},
-								{
-									"activity": "HR_Current_Timestamp",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -1136,7 +1038,7 @@
 														"type": "Expression"
 													},
 													"p_file": {
-														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"value": "@{item().table}",
 														"type": "Expression"
 													}
 												}
@@ -1264,8 +1166,6 @@
 			{
 				"name": "ForEachPurchasingTable",
 				"type": "ForEach",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "ForEachHRTable",
@@ -1320,34 +1220,11 @@
 							}
 						},
 						{
-							"name": "Prch_Current_Timestamp",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "current_timestamp",
-								"value": {
-									"value": "@utcNow()",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "Prch_CheckNewRecords",
 							"type": "Script",
 							"dependsOn": [
 								{
 									"activity": "Prch_Last_cdc_date",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								},
-								{
-									"activity": "Prch_Current_Timestamp",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -1453,7 +1330,7 @@
 														"type": "Expression"
 													},
 													"p_file": {
-														"value": "@concat(item().table,'-',variables('current_timestamp'))",
+														"value": "@{item().table}",
 														"type": "Expression"
 													}
 												}
