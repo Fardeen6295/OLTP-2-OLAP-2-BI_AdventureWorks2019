@@ -10,10 +10,14 @@ This is a complete solution of Many Business Data Situation where they have data
 
 <br />
 
-#### This is the End Result of the Project, After Completing the Data Engineering in Azure and Data Anslysis in Power BI and UI Design in FIgma, this is the outcome of all work. A Enterprise Grade Dashboard built on Lakehouse Architecture
-<br />
-<img width="1898" height="1019" alt="Screenshot 2026-01-16 152411" src="https://github.com/user-attachments/assets/ef2691a3-14d6-4c59-989c-932f3c1eb3b4" />
-<br />
+# Enterprise Grade Dashboard (Lakehouse Architecture)
+
+This is the end result of the project after completing Data Engineering in Azure, Data Analysis in Power BI, and UI Design in Figma.  
+
+[![Dashboard Screenshot](https://github.com/user-attachments/assets/ef2691a3-14d6-4c59-989c-932f3c1eb3b4)](https://app.powerbi.com/view?r=eyJrIjoiMGRjZWRkZmYtNDQ3Yy00ZmVkLTk3MTYtMzlhNTdkZTlmNWY5IiwidCI6IjZlZDIzOTM2LTIyM2QtNGU3ZS1hN2Q1LWExZGQ5NWU0OTM0NyJ9&pageName=f8cebeb017a0858755c0)
+
+Click the image above to explore the interactive Power BI report.
+
 
 
 #### This is the Parent Pipelone which is built on MEDALLION Architecture
